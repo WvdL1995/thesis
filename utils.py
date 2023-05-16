@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 
 def load_data(path,to3D=True):
     """Loads data into numpy array
-    returns dictionary"""
+    returns either 2d array pixels by mass bins
+    or 3d array with pixels by pixels by mass bins"""
     print("Opening "+path)
     data = np.load(path,allow_pickle=True)[()]
 
@@ -57,8 +58,22 @@ def plot_slice(data,massbin : list):
     plt.show()
 
 def plot_spect(data,pixel):
+    """Plot spectra, takes two arguments
+    data: either 2D or 3D array
+    pixel, the pixel of the spectra to plot
+    
+    if 3D array is given, pixel should be [x,y]
+    if multiple pixels are given a subplot is created"""
+    if isinstance(pixel,int):
+        pixel = [pixel]
     if data.ndim<=2:
-        plt.plot(data[pixel])
+        plt.subplots(len(pixel))
+        for i in range(len(pixel)):
+            plt.subplot(len(pixel),1,i+1)
+            plt.plot(data[pixel[i]])                
+            #plt.title("Pixel nr. %d" %pixel[i])
+            plt.ylabel('Intensity')
+
     else:
 
         print(np.size(pixel))
@@ -67,6 +82,6 @@ def plot_spect(data,pixel):
         else:
             spec = data[pixel[0],pixel[1],:]
             plt.plot(spec)
+            plt.ylabel('Intensity')
     plt.xlabel('m/z')
-    plt.ylabel('Intensity')
     plt.show()
