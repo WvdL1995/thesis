@@ -3,6 +3,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import torch
+from torch.autograd import Variable
+from tqdm import tqdm
 def load_data(path,to3D=True):
     """Loads data into numpy array
     returns either 2d array pixels by mass bins
@@ -73,15 +76,58 @@ def plot_spect(data,pixel):
             plt.plot(data[pixel[i]])                
             #plt.title("Pixel nr. %d" %pixel[i])
             plt.ylabel('Intensity')
-
     else:
-
-        print(np.size(pixel))
+        # print(np.size(pixel))
         if np.size(pixel)>3:
             pass #subplots       
         else:
             spec = data[pixel[0],pixel[1],:]
             plt.plot(spec)
             plt.ylabel('Intensity')
-    plt.xlabel('m/z')
+    plt.xlabel('Mass bin')
     plt.show()
+
+class dataloader(torch.utils.data.TensorDataset):
+    def __init__(self,samples,labels):
+        self.data=[]
+        for i in range(len(labels)):
+            self.data.append([samples[:,i],labels[i]])
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self,idx):
+        sample, classname = self.data[idx]
+        sample = torch.from_numpy(sample)
+        return sample, classname
+    
+def train(opt,data,generator,discriminator,optimizers,adverloss,savemodels=False):
+    Tensor = torch.FloatTensor # no gpu implementation yet
+    for epoch in range(opt.n_epochs):
+        with tqdm(data,unit="batch") as tepoch:
+            tepoch.set_description("Epoch %d / %d" %(epoch+1,opt.n_epochs))
+            for sample, _ in tepoch:
+                # create real/fake labels
+                valid = Variable(Tensor(sample.shape[0],1).fill_(1.0),requires_grad=False)
+                fake =  Variable(Tensor(sample.shape[0],1).fill_(0.0),requires_grad=False)
+
+                real_samples = Variable(sample.type(Tensor))
+
+                optimizers.optimizer_G.zero_grad()
+
+                z = Variable(Tensor(torch.rand((opt.bsize,1,opt.latent_dim))))
+                gen_samples = generator(z)
+                print('??')
+                g_loss = adverloss(discriminator(gen_samples),valid)
+
+                g_loss.backward()
+                optimizers.optimizer_G.step()
+                print('ff')
+                optimizers.optimizer_D.zero_grad()
+
+                real_loss = adverloss(discriminator(real_samples),valid)
+                fake_loss = adverloss(discriminator(gen_samples.detach()), fake) 
+
+                d_loss = (real_loss + fake_loss)/2
+
+                d_loss.backward()
+                optimizers.optimizer_D.step()
+                tepoch.set_postfix(Gloss=g_loss.ite(),Dloss=d_loss.item())
