@@ -6,6 +6,8 @@ from models import *
 import numpy as np
 from tqdm import tqdm
 
+from sklearn.model_selection import train_test_split
+
 # #create 3d  (contains Nan values)
 # data = load_data("data/2022-12-08-rat_kidney.npy")
 # # create 2D data
@@ -15,29 +17,37 @@ print(np.min(data2D))
 
 # # show examples of data
 # np.max(data)
-# randomspec = np.random.randint(0,len(data2D),size=5)
-# plot_spect(data2D,randomspec)
+
 # plot_slice(data,1)
 # plot_spect(data,([200,200]))
-
 
 #initialize model
 opt.latent_dim=100
 opt.specsize = 600
-opt.n_epochs = 10
+opt.n_epochs = 100
 opt.b1=0.5
 opt.b2=0.999
 opt.lr=0.002
-opt.bsize = 64
-opt.n_epcohs = 20
+opt.bsize = 128
 
-
-# change datasize to 512 mass bins (to make NN architecture easier)
+# normalize data
+maxval = np.max(data2D)
+data2D = data2D/maxval
+print(np.max(data2D))
+# change datasize to 512 mass bins (to make CNN architecture easier)
 data2D = data2D[:,0:512]
+randomspec = np.random.randint(0,len(data2D),size=5)
+plot_spect(data2D,randomspec)
 
+data2D = np.expand_dims(data2D,axis=2) # number of input channels has to be included in dimensions
+print("expanded array",np.shape(data2D))
 labels = np.zeros([len(data2D),1])
-# split into train test set!!
-data = dataloader(np.transpose(data2D),labels)
+
+print(len(labels))
+data2D,_,labels,_ = train_test_split(data2D,labels,train_size=0.75)
+print(len(labels))
+data = np.transpose(data2D)
+data = dataloader(data,labels)
 data = torch.utils.data.DataLoader(data,
                                     batch_size=opt.bsize,
                                     num_workers=0,
@@ -53,15 +63,12 @@ optimizers.optimizer_D = torch.optim.Adam(discriminator.parameters(),lr=opt.lr,b
 
 adverloss = torch.nn.BCELoss()
 
-# train(opt,data,generator,discriminator,optimizers,adverloss)
-# generator.eval()
-# discriminator.eval()
+
+
+# train(opt,data,generator,discriminator,optimizers,adverloss,savemodels=True)
+
 Tensor = torch.FloatTensor # no gpu implementation yet
-z = Variable(Tensor(torch.rand((opt.bsize,1,opt.latent_dim))))
-fakedata = generator.forward(z).detach().numpy()
-# #  plot_spect(fakedata[:,:],[1,3])
-print(np.shape(fakedata))
-print("ff",np.shape(next(iter(data))[0].detach().cpu().numpy()))
-discriminator.forward(next(iter(data))[0])
-pred = discriminator.forward(generator.forward(z))
-# print(np.shape(pred))
+staticnoise = Variable(Tensor(torch.rand((20,1,opt.latent_dim))))
+eval_model('models/run180523_2/',staticnoise,gen_img=True,losses=False)
+
+

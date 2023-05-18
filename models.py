@@ -23,11 +23,13 @@ class DC_Generator_1D(nn.Module):
             nn.Conv1d(8,8,3,stride=2,padding=1),
             nn.Flatten(),
             nn.Linear(512,512),
-            nn.ReLU(),
+            #nn.ReLU(),
+            nn.Sigmoid()
             )
 
     def forward(self,x):
         output = self.layers(x)
+        output = output.view(output.shape[0],1,512) #adds additional d
         return output
 
 class DC_Discriminator_1D(nn.Module):
@@ -51,3 +53,12 @@ class DC_Discriminator_1D(nn.Module):
     
     def forward(self,x):
         return self.layers(x)
+    
+class min_Discriminator(nn.Module):
+    def __init__(self) -> None:
+        super(min_Discriminator,self).__init__()
+        self.dense = nn.Linear(512,1)
+        self.activation = nn.Sigmoid()
+
+    def forward(self,x):
+        return self.activation(self.dense(x))
