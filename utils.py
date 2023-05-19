@@ -112,6 +112,9 @@ class dataloader(torch.utils.data.TensorDataset):
     
 def train(opt,data,generator,discriminator,optimizers,adverloss,savemodels=False):
     Tensor = torch.FloatTensor # no gpu implementation yet
+    if savemodels:
+        # create nescesary folders if they don't exist!!
+        pass
     for epoch in range(opt.n_epochs):
         with tqdm(data,unit="batch") as tepoch:
             tepoch.set_description("Epoch %d / %d" %(epoch+1,opt.n_epochs))
