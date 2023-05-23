@@ -2,7 +2,16 @@ import torch
 import torch.nn as nn
 
 class opt():
+    """Options"""
     pass
+
+def weights_init_normal(m):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        torch.nn.init.normal_(m.weight.data, 0.0, 0.02) #mean 0, std 0.02
+    elif classname.find("BatchNorm2d") != -1:
+        torch.nn.init.normal_(m.weight.data, 1.0, 0.02) 
+        torch.nn.init.constant_(m.bias.data, 0.0)
 
 class DC_Generator_1D(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
@@ -10,21 +19,21 @@ class DC_Generator_1D(nn.Module):
 
         self.layers = nn.Sequential(
             nn.Linear(opt.latent_dim,128),
-            #nn.BatchNorm1d(1,0.8),
+            nn.BatchNorm1d(1,0.8),
             nn.Upsample(scale_factor=4),
-            nn.Conv1d(1,4,3,stride=2,padding=1),
-            nn.BatchNorm1d(4,0.8),
+            nn.Conv1d(1,16,3,stride=2,padding=1),
+            nn.BatchNorm1d(16,0.8),
             # nn.Flatten(start_dim=1),
             nn.LeakyReLU(0.2),
-            nn.Conv1d(4,8,3,stride=2,padding=1),
-            #nn.BatchNorm1d(8,0.8),
+            nn.Conv1d(16,16,3,stride=2,padding=1),
+            nn.BatchNorm1d(16,0.8),
             # nn.Flatten(),
             nn.LeakyReLU(0.2,inplace=True),
-            nn.Conv1d(8,8,3,stride=2,padding=1),
+            nn.Conv1d(16,8,3,stride=2,padding=1),
             nn.Flatten(),
             nn.Linear(512,512),
-            #nn.ReLU(),
-            nn.Sigmoid()
+            nn.ReLU(),
+            #nn.Sigmoid()
             )
 
     def forward(self,x):
@@ -50,10 +59,13 @@ class DC_Discriminator_1D(nn.Module):
             nn.Linear(6,1),
             nn.Sigmoid()
         )
-    
     def forward(self,x):
         return self.layers(x)
-    
+
+class DC_Discriminator_2D(nn.Module):
+    def __init__(self) -> None:
+        super(DC_Discriminator_2D,self).__init__()
+
 class min_Discriminator(nn.Module):
     def __init__(self) -> None:
         super(min_Discriminator,self).__init__()

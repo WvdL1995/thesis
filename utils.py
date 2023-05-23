@@ -80,7 +80,10 @@ def plot_spect(data,pixel,show=True):
 
         for i in range(len(pixel)):
             plt.subplot(len(pixel),1,i+1)
-            plt.plot(data[pixel[i]])                
+            plt.plot(data[pixel[i]])
+            if opt.pltlog == True:
+                plt.yscale('log')
+                
             #plt.title("Pixel nr. %d" %pixel[i])
     else:
         # print(np.size(pixel))
@@ -90,6 +93,7 @@ def plot_spect(data,pixel,show=True):
             spec = data[pixel[0],pixel[1],:]
             plt.plot(spec)
             # plt.ylabel('Intensity')
+    
     plt.ylabel('Intensity')
     plt.xlabel('Mass bin')
     plt.suptitle("Selected spectra")
@@ -107,14 +111,26 @@ class dataloader(torch.utils.data.TensorDataset):
         return len(self.data)
     def __getitem__(self,idx):
         sample, classname = self.data[idx]
-        sample = torch.from_numpy(sample)
+        if torch.cuda.is_available():
+            sample = torch.from_numpy(sample).to(torch.device("cuda"))
+        else:
+            sample = torch.from_numpy(sample)
         return sample, classname
     
-def train(opt,data,generator,discriminator,optimizers,adverloss,savemodels=False):
-    Tensor = torch.FloatTensor # no gpu implementation yet
-    if savemodels:
-        # create nescesary folders if they don't exist!!
-        pass
+def train(opt,data,generator,discriminator,optimizers,adverloss,savedir=False):
+    """
+    If no savedir is specified, model will not be saved
+    """
+    if torch.cuda.is_available():
+        Tensor = torch.cuda.FloatTensor
+    else:
+        Tensor = torch.FloatTensor
+    if savedir:
+        folder = savedir
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            print("new directroy created called: %s" %folder)
+
     for epoch in range(opt.n_epochs):
         with tqdm(data,unit="batch") as tepoch:
             tepoch.set_description("Epoch %d / %d" %(epoch+1,opt.n_epochs))
@@ -127,7 +143,10 @@ def train(opt,data,generator,discriminator,optimizers,adverloss,savemodels=False
 
                 optimizers.optimizer_G.zero_grad()
 
-                z = Variable(Tensor(torch.rand((sample.shape[0],1,opt.latent_dim))))
+                if torch.cuda.is_available:
+                    z = Variable(Tensor(torch.rand((sample.shape[0],1,opt.latent_dim)).to(torch.device('cuda'))))
+                else:
+                    z = Variable(Tensor(torch.rand((sample.shape[0],1,opt.latent_dim))))
                 # print("sample shape:",sample.shape[0])
                 # print("noise shape:",np.shape(z))
                 gen_samples = generator(z)
@@ -145,17 +164,29 @@ def train(opt,data,generator,discriminator,optimizers,adverloss,savemodels=False
                 d_loss.backward()
                 optimizers.optimizer_D.step()
                 tepoch.set_postfix(Gloss=g_loss.item(),Dloss=d_loss.item())
-            if savemodels:
-                torch.save(generator,str("models/run180523_2/generator"+str(epoch)))
-                torch.save(discriminator,str("models/run180523_2/discriminator"+str(epoch)))
+            if savedir:
+                torch.save(generator,str(folder+"generator"+str(epoch)))
+                torch.save(discriminator,str(folder+"discriminator"+str(epoch)))
 
-def eval_model(model_path,staticnoise,gen_img=False,losses=False):
+def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
     """function to evaluate saved models
     Can generate images and calculate losses"""
     gen_model = DC_Generator_1D()
     dis_model = DC_Discriminator_1D()
+    if torch.cuda.is_available:
+        gen_model.cuda()
+        dis_model.cuda()
     H = {'g_loss': [],
          'd_loss': []}
+    if torch.cuda.is_available():
+        Tensor = torch.cuda.FloatTensor
+    else:
+        Tensor = torch.FloatTensor
+    valid = Variable(Tensor(staticnoise.shape[0],1,1).fill_(1.0),requires_grad=False)
+    fake =  Variable(Tensor(staticnoise.shape[0],1,1).fill_(0.0),requires_grad=False)
+
+    adverloss = torch.torch.nn.BCELoss()
+
     for filename in natsorted(os.listdir(model_path)):
         if 'generator' in filename:
             fgen = os.path.join(model_path, filename)
@@ -164,16 +195,39 @@ def eval_model(model_path,staticnoise,gen_img=False,losses=False):
 
             if losses:
                 fdis = os.path.join(model_path, filename.replace('generator','discriminator'))
-                print(fdis)
                 dis_model = torch.load(fdis)
                 ##
-                # evaluate loss function
+                gen_samples = gen_model(staticnoise)
+                g_loss = adverloss(dis_model(gen_samples),valid)
+                real_loss = adverloss(dis_model(torch.Tensor(x_test[0:staticnoise.shape[0],:,:]).to(torch.device('cuda'))),valid)
+                fake_loss = adverloss(dis_model(gen_samples.detach()), fake) 
+                d_loss = (real_loss + fake_loss)/2
+
+                H["g_loss"].append(g_loss.item())
+                H["d_loss"].append(d_loss.item())
                 ##
             if gen_img:
+                if not os.path.exists(str(model_path+"fake/")):
+                    os.makedirs(model_path+"fake/")    
                 xhat = gen_model.forward(staticnoise).cpu().detach().numpy()
                 imgname = str('fake/img'+str(nr))
                 xhat = np.squeeze(xhat,axis=1)
-                plt = plot_spect(xhat,([0,1,2,3,4]),show=False)
-                plt.savefig(str(model_path+imgname))
+                fig = plot_spect(xhat,([0,1,2,3,4]),show=False)
+                fig.savefig(str(model_path+imgname))
         else:
             pass
+    if losses:
+        # print("Generator loss",H["g_loss"])
+        # print("Discriminator loss",H["d_loss"])
+        plt.figure()
+        plt.plot(H["g_loss"])
+        plt.plot(H["d_loss"])
+        plt.legend(["Generator","Discriminator"])
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.title("BCE loss on test set")
+        plt.savefig(str(model_path+"BCE_testloss"))
+
+class evaluation_metrics():
+    def __init__(self) -> None:
+        pass
