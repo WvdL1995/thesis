@@ -18,11 +18,11 @@ data2D = load_data("data/2022-12-08-rat_kidney.npy",to3D=False)
 #initialize variables
 opt.latent_dim=100
 opt.specsize = 600
-opt.n_epochs = 10
+opt.n_epochs = 1
 opt.b1=0.5
 opt.b2=0.999
 opt.lr=0.02
-opt.bsize = 8
+opt.bsize = 128
 opt.pltlog = True
 
 # normalize data
@@ -35,7 +35,6 @@ randomspec = np.random.randint(0,len(data2D),size=5)
 
 data2D = np.expand_dims(data2D,axis=2) # number of input channels has to be included in dimensions
 labels = np.zeros([len(data2D),1])
-
 data2D,x_test,labels,y_test = train_test_split(data2D,labels,train_size=0.75)
 data = np.transpose(data2D)
 data = dataloader(data,labels)

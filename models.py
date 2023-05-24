@@ -62,6 +62,45 @@ class DC_Discriminator_1D(nn.Module):
     def forward(self,x):
         return self.layers(x)
 
+class OG_Generator(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super(OG_Generator,self).__init__(*args, **kwargs)
+
+        self.layers = nn.Sequential(
+            nn.Linear(opt.latent_dim,128),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128,256),
+            nn.BatchNorm1d(256),
+            nn.LeakyReLU(0.2,inplace=True),
+            nn.Linear(256,512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(0.2,inplace=True),
+            nn.Linear(512,512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(0.2,inplace=True),   
+            nn.Linear(512,512),
+            nn.ReLU()        
+        )
+    def forward(self,x):
+        output = self.layers(x)
+        output = output.view(output.shape[0],1,512) #adds additional d
+        return output
+
+class OG_Discriminator(nn.Module):
+    def __init__(self, *args, **kwargs) -> None:
+        super(OG_Discriminator,self).__init__(*args, **kwargs)
+        
+        self.layers = nn.Sequential(
+            nn.Linear(512, 512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(512,256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Linear(256,1),
+            nn.Sigmoid()
+        )
+    def forward(self,x):
+        return self.layers(x)
+
 class DC_Discriminator_2D(nn.Module):
     def __init__(self) -> None:
         super(DC_Discriminator_2D,self).__init__()
