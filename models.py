@@ -70,13 +70,13 @@ class OG_Generator(nn.Module):
             nn.Linear(opt.latent_dim,128),
             nn.LeakyReLU(0.2),
             nn.Linear(128,256),
-            nn.BatchNorm1d(256),
+            nn.BatchNorm1d(1,0.8),
             nn.LeakyReLU(0.2,inplace=True),
             nn.Linear(256,512),
-            nn.BatchNorm1d(512),
+            nn.BatchNorm1d(1,0.8),
             nn.LeakyReLU(0.2,inplace=True),
             nn.Linear(512,512),
-            nn.BatchNorm1d(512),
+            nn.BatchNorm1d(1,0.8),
             nn.LeakyReLU(0.2,inplace=True),   
             nn.Linear(512,512),
             nn.ReLU()        
@@ -96,9 +96,10 @@ class OG_Discriminator(nn.Module):
             nn.Linear(512,256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256,1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
     def forward(self,x):
+        #x = x.view(x.size(0),-1)
         return self.layers(x)
 
 class DC_Discriminator_2D(nn.Module):
