@@ -18,11 +18,11 @@ data2D = load_data("data/2022-12-08-rat_kidney.npy",to3D=False)
 #initialize variables
 opt.latent_dim=100
 opt.specsize = 600
-opt.n_epochs = 50
+opt.n_epochs = 100
 opt.b1=0.5
 opt.b2=0.999
 opt.lr=0.0001 #need extremly low learning rate!
-opt.bsize = 64
+opt.bsize = 256
 opt.pltlog = False
 
 # normalize data
@@ -61,7 +61,7 @@ optimizers.optimizer_D = torch.optim.Adam(discriminator.parameters(),lr=opt.lr,b
 
 adverloss = torch.nn.BCELoss()
 
-modelname = 'models/run240523_1/'
+modelname = 'models/run290523_7/'
 train(opt,data,generator,discriminator,optimizers,adverloss,savedir=modelname)
 
 # evaluation

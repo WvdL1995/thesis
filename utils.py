@@ -160,7 +160,13 @@ def train(opt,data,generator,discriminator,optimizers,adverloss,savedir=False):
                 fake_loss = adverloss(discriminator(gen_samples.detach()), fake) 
 
                 d_loss = (real_loss + fake_loss)/2
-
+                if d_loss.item()>=50 and epoch>=2:
+                    count+=1
+                    if count>=5:
+                        print("_Discriminator loss equal to %d,too large, stopping training...",d_loss.item())
+                        return
+                else:
+                    count = 0
                 d_loss.backward()
                 optimizers.optimizer_D.step()
                 tepoch.set_postfix(Gloss=g_loss.item(),Dloss=d_loss.item())
@@ -177,7 +183,9 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
         gen_model.cuda()
         dis_model.cuda()
     H = {'g_loss': [],
-         'd_loss': []}
+         'd_loss': [],
+         'l1_norm': [],
+         'l2_norm': [],}
     if torch.cuda.is_available():
         Tensor = torch.cuda.FloatTensor
     else:
@@ -205,6 +213,11 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
 
                 H["g_loss"].append(g_loss.item())
                 H["d_loss"].append(d_loss.item())
+
+                l1 = evaluation_metrics.l1norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
+                l2 = evaluation_metrics.l2norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
+                H["l1_norm"].append(l1)
+                H["l2_norm"].append(l2)
                 ##
             if gen_img:
                 if not os.path.exists(str(model_path+"fake/")):
@@ -227,7 +240,38 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
         plt.ylabel("Loss")
         plt.title("BCE loss on test set")
         plt.savefig(str(model_path+"BCE_testloss"))
+        
+        plt.figure()
+        plt.subplots(2)
+        plt.subplot(2,1,1)
+        plt.plot(H["l1_norm"])
+        plt.ylabel("Avarage l1 norm")
+        plt.title("Avarage norms over iterations")
+        plt.subplot(2,1,2)
+        plt.plot(H["l2_norm"])
+        # plt.legend(["l1 Norm","l2 Norm"])
+        plt.xlabel("Epoch")
+        plt.ylabel("Avarage l2 norm")
+        plt.savefig(str(model_path+"normeval"))
 
 class evaluation_metrics():
     def __init__(self) -> None:
         pass
+
+    def l1norm(fake,real):
+        """Calculates avarage l1 norm"""
+        e = real[:len(fake)-1,:,:]-fake
+        l1 = np.linalg.norm(e,ord=1,axis=0)
+        av_l1=np.mean(l1)
+
+        eb = real[len(fake):2*len(fake),:,:]-fake
+        l1_base = np.linalg.norm(eb,ord=1,axis=0)
+        av_l1_base = np.mean(l1)
+        return av_l1 ,av_l1_base
+    
+    def l2norm(real,fake):
+        """Calculates average l2 norm"""
+        e = real-fake
+        l1 = np.linalg.norm(e,ord=2,axis=0)
+        av_l1=np.mean(l1)
+        return av_l1
