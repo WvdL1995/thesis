@@ -75,28 +75,32 @@ def plot_spect(data,pixel,show=True):
     if multiple pixels are given a subplot is created"""
     if isinstance(pixel,int):
         pixel = [pixel]
-    if data.ndim<=2:
-        plt.subplots(len(pixel))
+    if data.ndim<=2: #data is in 2D
+        
+        plt.subplots(len(pixel),sharex=True)
+        plt.subplots_adjust(hspace=0)
 
         for i in range(len(pixel)):
             plt.subplot(len(pixel),1,i+1)
-            plt.plot(data[pixel[i]])
-            if opt.pltlog == True:
-                plt.yscale('log')
-                
+            plt.stem(data[pixel[i]],basefmt = '',markerfmt=' ')
+            plt.ylabel('Intensity')
+
+            # if opt.pltlog == True:
+            #     plt.yscale('log')   
             #plt.title("Pixel nr. %d" %pixel[i])
-    else:
+    else: #data is in 3D, every pixel needs coordinate
         # print(np.size(pixel))
         if np.size(pixel)>3:
             pass #subplots       
         else:
             spec = data[pixel[0],pixel[1],:]
-            plt.plot(spec)
+            plt.stem(spec,markerfmt=' ')
             # plt.ylabel('Intensity')
     
-    plt.ylabel('Intensity')
     plt.xlabel('Mass bin')
-    plt.suptitle("Selected spectra")
+    title = "Selected spectra:\n"+", ".join([str(i) for i in pixel])
+    print(title)
+    plt.suptitle(title)
 
     if show:
         plt.show()
@@ -143,7 +147,7 @@ def train(opt,data,generator,discriminator,optimizers,adverloss,savedir=False):
 
                 optimizers.optimizer_G.zero_grad()
 
-                if torch.cuda.is_available:
+                if torch.cuda.is_available():
                     z = Variable(Tensor(torch.rand((sample.shape[0],1,opt.latent_dim)).to(torch.device('cuda'))))
                 else:
                     z = Variable(Tensor(torch.rand((sample.shape[0],1,opt.latent_dim))))
@@ -179,7 +183,7 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
     Can generate images and calculate losses"""
     gen_model = DC_Generator_1D()
     dis_model = DC_Discriminator_1D()
-    if torch.cuda.is_available:
+    if torch.cuda.is_available():
         gen_model.cuda()
         dis_model.cuda()
     H = {'g_loss': [],
@@ -207,17 +211,21 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
                 ##
                 gen_samples = gen_model(staticnoise)
                 g_loss = adverloss(dis_model(gen_samples),valid)
-                real_loss = adverloss(dis_model(torch.Tensor(x_test[0:staticnoise.shape[0],:,:]).to(torch.device('cuda'))),valid)
+                if torch.cuda.is_available():
+                    real_loss = adverloss(dis_model(torch.Tensor(x_test[0:staticnoise.shape[0],:,:]).to(torch.device('cuda'))),valid)
+                else:
+                    real_loss = adverloss(dis_model(torch.Tensor(x_test[0:staticnoise.shape[0],:,:])),valid)
+
                 fake_loss = adverloss(dis_model(gen_samples.detach()), fake) 
                 d_loss = (real_loss + fake_loss)/2
 
                 H["g_loss"].append(g_loss.item())
                 H["d_loss"].append(d_loss.item())
 
-                l1 = evaluation_metrics.l1norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
-                l2 = evaluation_metrics.l2norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
-                H["l1_norm"].append(l1)
-                H["l2_norm"].append(l2)
+                # l1 = evaluation_metrics.l1norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
+                # l2 = evaluation_metrics.l2norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
+                # H["l1_norm"].append(l1)
+                # H["l2_norm"].append(l2)
                 ##
             if gen_img:
                 if not os.path.exists(str(model_path+"fake/")):
@@ -241,18 +249,18 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
         plt.title("BCE loss on test set")
         plt.savefig(str(model_path+"BCE_testloss"))
         
-        plt.figure()
-        plt.subplots(2)
-        plt.subplot(2,1,1)
-        plt.plot(H["l1_norm"])
-        plt.ylabel("Avarage l1 norm")
-        plt.title("Avarage norms over iterations")
-        plt.subplot(2,1,2)
-        plt.plot(H["l2_norm"])
-        # plt.legend(["l1 Norm","l2 Norm"])
-        plt.xlabel("Epoch")
-        plt.ylabel("Avarage l2 norm")
-        plt.savefig(str(model_path+"normeval"))
+        # plt.figure()
+        # plt.subplots(2)
+        # plt.subplot(2,1,1)
+        # plt.plot(H["l1_norm"])
+        # plt.ylabel("Avarage l1 norm")
+        # plt.title("Avarage norms over iterations")
+        # plt.subplot(2,1,2)
+        # plt.plot(H["l2_norm"])
+        # # plt.legend(["l1 Norm","l2 Norm"])
+        # plt.xlabel("Epoch")
+        # plt.ylabel("Avarage l2 norm")
+        # plt.savefig(str(model_path+"normeval"))
 
 class evaluation_metrics():
     def __init__(self) -> None:

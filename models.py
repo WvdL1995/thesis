@@ -4,6 +4,11 @@ import torch.nn as nn
 class opt():
     """Options"""
     pass
+# class opt():
+#     def __init__(self,dict):
+#         for key in dict:
+#             print(key,dict[key])
+#             setattr(self,key,dict[key])
 
 def weights_init_normal(m):
     classname = m.__class__.__name__

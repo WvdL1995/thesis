@@ -4,11 +4,38 @@
 from utils import *
 from models import *
 import numpy as np
+import argparse
 
 import torch
 from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--latent_dim",type=int,default=100,help="length of latent vector")
+parser.add_argument("--specsize",type=int,default=100,help="????")
+parser.add_argument("--n_epcohs",type=int,default=50,help="number of epochs")
+parser.add_argument("--b1",type=float,default=0.5,help="?????????")
+parser.add_argument("--b2",type=float,default=0.999,help="?????????????")
+parser.add_argument("--lr",type=float,default=0.0001,help="learning rate")
+parser.add_argument("--bsize",type=int,default=32,help="batch size")
+parser.add_argument("--pltlog",type=bool,default=False,help="plot spectra on logaritmich scale")
+options = parser.parse_args()
+
+# print(parser.parse_args())
+# quit()
+# opt(options)
+# opt = opt(vars(options))
+# print(type(opt))
+# print(opt.__dict__)
+# print(opt.latent_dim)
+
+# opt.latent_dim = 100
+# print(opt.latent_dim)
+# for key,i in enumerate(vars(options)):
+#     print(key,dict[key])
+#     opt.key = vars(options)[key]
+# print(opt.__dict__)
 
 # #create 3d  (contains Nan values)
 # data = load_data("data/2022-12-08-rat_kidney.npy")
@@ -16,9 +43,11 @@ from sklearn.model_selection import train_test_split
 data2D = load_data("data/2022-12-08-rat_kidney.npy",to3D=False)
 
 #initialize variables
+
+
 opt.latent_dim=100
 opt.specsize = 600
-opt.n_epochs = 100
+opt.n_epochs = 3
 opt.b1=0.5
 opt.b2=0.999
 opt.lr=0.0001 #need extremly low learning rate!
@@ -32,7 +61,7 @@ opt.pltlog = False
 data2D = data2D[:,0:512]
 randomspec = np.random.randint(0,len(data2D),size=5)
 # plot_spect(data2D,randomspec)
-
+# quit()
 data2D = np.expand_dims(data2D,axis=2) # number of input channels has to be included in dimensions
 labels = np.zeros([len(data2D),1])
 data2D,x_test,labels,y_test = train_test_split(data2D,labels,train_size=0.75)
@@ -49,7 +78,7 @@ discriminator = OG_Discriminator()
 # generator.apply(weights_init_normal)
 # discriminator.apply(weights_init_normal)
 
-if torch.cuda.is_available:
+if torch.cuda.is_available():
     generator.cuda()
     discriminator.cuda()
 
