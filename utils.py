@@ -99,12 +99,20 @@ def plot_spect(data,pixel,show=True):
     
     plt.xlabel('Mass bin')
     title = "Selected spectra:\n"+", ".join([str(i) for i in pixel])
-    print(title)
+    # print(title)
     plt.suptitle(title)
 
     if show:
         plt.show()
     return plt
+def get_labels(path):
+    with np.load(path,allow_pickle=True) as nmfdata:
+        w = nmfdata['w']
+        h = nmfdata['h']
+    classes = []
+    for i in range(len(w)):
+        classes.append(np.argmax(w[i]))
+    return classes
 
 class dataloader(torch.utils.data.TensorDataset):
     def __init__(self,samples,labels):
