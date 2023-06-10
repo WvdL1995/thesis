@@ -47,11 +47,11 @@ data2D = load_data("data/2022-12-08-rat_kidney.npy",to3D=False)
 
 opt.latent_dim=100
 opt.specsize = 600
-opt.n_epochs = 50
+opt.n_epochs = 500
 opt.b1=0.5
 opt.b2=0.999
-opt.lr=0.00001 #need extremly low learning rate!
-opt.bsize = 64
+opt.lr=0.0002 #need extremly low learning rate!
+opt.bsize = 256
 opt.pltlog = False
 
 # normalize data
@@ -59,9 +59,17 @@ opt.pltlog = False
 
 # change datasize to 512 mass bins (to make CNN architecture easier)
 data2D = data2D[:,0:512]
+print(np.count_nonzero(np.isnan(data2D)))
+minmaxed = np.zeros(np.shape(data2D))
+for i in range(len(data2D)):
+    minmaxed[i,:] = (data2D[i,:]-min(data2D[i,:]))/(max(data2D[i,:]-min(data2D[i,:])))*2-1 #*2-1 for tanh
+    if max(data2D[i,:]-min(data2D[i,:]))<=1:
+        print(max(data2D[i,:]-min(data2D[i,:])))
+data2D=minmaxed
+
+# plot example
 randomspec = np.random.randint(0,len(data2D),size=5)
-# plot_spect(data2D,randomspec)
-# quit()
+
 data2D = np.expand_dims(data2D,axis=2) # number of input channels has to be included in dimensions
 # labels = np.zeros([len(data2D),1])
 labels = get_labels('data/orthogonal_nmf.npz')
@@ -104,8 +112,8 @@ optimizers.optimizer_D = torch.optim.Adam(discriminator.parameters(),lr=opt.lr,b
 
 adverloss = torch.nn.BCELoss()
 
-modelname = 'models/run060623_4/'
-train(opt,data,generator,discriminator,optimizers,adverloss,savedir=modelname)
+modelname = 'models/run100623_4/'
+# train(opt,data,generator,discriminator,optimizers,adverloss,savedir=modelname)
 
 # evaluation
 if torch.cuda.is_available():

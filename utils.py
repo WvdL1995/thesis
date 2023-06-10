@@ -82,7 +82,7 @@ def plot_spect(data,pixel,show=True):
 
         for i in range(len(pixel)):
             plt.subplot(len(pixel),1,i+1)
-            plt.stem(data[pixel[i]],basefmt = '',markerfmt=' ')
+            plt.stem(data[pixel[i]],basefmt =' ',markerfmt=' ')
             plt.ylabel('Intensity')
 
             # if opt.pltlog == True:
@@ -230,10 +230,10 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
                 H["g_loss"].append(g_loss.item())
                 H["d_loss"].append(d_loss.item())
 
-                # l1 = evaluation_metrics.l1norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
-                # l2 = evaluation_metrics.l2norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0]*2,:,:])
-                # H["l1_norm"].append(l1)
-                # H["l2_norm"].append(l2)
+                l1 = evaluation_metrics.l1norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0],:,:])
+                l2 = evaluation_metrics.l2norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0],:,:])
+                H["l1_norm"].append(l1)
+                H["l2_norm"].append(l2)
                 ##
             if gen_img:
                 if not os.path.exists(str(model_path+"fake/")):
@@ -243,6 +243,7 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
                 xhat = np.squeeze(xhat,axis=1)
                 fig = plot_spect(xhat,([0,1,2,3,4]),show=False)
                 fig.savefig(str(model_path+imgname))
+                fig.close()
         else:
             pass
     if losses:
@@ -257,18 +258,18 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
         plt.title("BCE loss on test set")
         plt.savefig(str(model_path+"BCE_testloss"))
         
-        # plt.figure()
+        plt.figure()
         # plt.subplots(2)
         # plt.subplot(2,1,1)
         # plt.plot(H["l1_norm"])
         # plt.ylabel("Avarage l1 norm")
         # plt.title("Avarage norms over iterations")
         # plt.subplot(2,1,2)
-        # plt.plot(H["l2_norm"])
+        plt.plot(H["l2_norm"])
         # # plt.legend(["l1 Norm","l2 Norm"])
-        # plt.xlabel("Epoch")
-        # plt.ylabel("Avarage l2 norm")
-        # plt.savefig(str(model_path+"normeval"))
+        plt.xlabel("Epoch")
+        plt.ylabel("Avarage l2 norm")
+        plt.savefig(str(model_path+"normeval"))
 
 class evaluation_metrics():
     def __init__(self) -> None:
@@ -276,12 +277,14 @@ class evaluation_metrics():
 
     def l1norm(fake,real):
         """Calculates avarage l1 norm"""
-        e = real[:len(fake)-1,:,:]-fake
+        # e = real[:len(fake)-1,:,:]-fake
+        e = real-fake
+
         l1 = np.linalg.norm(e,ord=1,axis=0)
         av_l1=np.mean(l1)
 
-        eb = real[len(fake):2*len(fake),:,:]-fake
-        l1_base = np.linalg.norm(eb,ord=1,axis=0)
+        #eb = real[len(fake):2*len(fake),:,:]-fake
+        #l1_base = np.linalg.norm(eb,ord=1,axis=0)
         av_l1_base = np.mean(l1)
         return av_l1 ,av_l1_base
     

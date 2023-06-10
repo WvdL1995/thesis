@@ -84,7 +84,8 @@ class OG_Generator(nn.Module):
             nn.BatchNorm1d(1,0.8),
             nn.LeakyReLU(0.2,inplace=True),   
             nn.Linear(512,512),
-            nn.ReLU()        
+            #nn.ReLU()
+            nn.Tanh()        
         )
     def forward(self,x):
         output = self.layers(x)
