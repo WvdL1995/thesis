@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 
 import torch
 from torch.autograd import Variable
+from torchmetrics.classification import BinaryAccuracy    
+
 from tqdm import tqdm
 
 from natsort import natsorted
@@ -82,7 +84,11 @@ def plot_spect(data,pixel,show=True):
 
         for i in range(len(pixel)):
             plt.subplot(len(pixel),1,i+1)
-            plt.stem(data[pixel[i]],basefmt =' ',markerfmt=' ')
+            if min(data[pixel[i]])<=-0.5:
+                bottom=-1
+            else:
+                bottom = 0
+            plt.stem(data[pixel[i]],basefmt =' ',markerfmt=' ',bottom=bottom)
             plt.ylabel('Intensity')
 
             # if opt.pltlog == True:
@@ -142,7 +148,7 @@ def train(opt,data,generator,discriminator,optimizers,adverloss,savedir=False):
         if not os.path.exists(folder):
             os.makedirs(folder)
             print("new directroy created called: %s" %folder)
-
+    print("Training ...")
     for epoch in range(opt.n_epochs):
         with tqdm(data,unit="batch") as tepoch:
             tepoch.set_description("Epoch %d / %d" %(epoch+1,opt.n_epochs))
@@ -189,6 +195,7 @@ def train(opt,data,generator,discriminator,optimizers,adverloss,savedir=False):
 def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
     """function to evaluate saved models
     Can generate images and calculate losses"""
+    print("Evaluating ...")
     gen_model = DC_Generator_1D()
     dis_model = DC_Discriminator_1D()
     if torch.cuda.is_available():
@@ -197,7 +204,9 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
     H = {'g_loss': [],
          'd_loss': [],
          'l1_norm': [],
-         'l2_norm': [],}
+         'l2_norm': [],
+         'acc_real': [],
+         'acc_fake':[]}
     if torch.cuda.is_available():
         Tensor = torch.cuda.FloatTensor
     else:
@@ -207,7 +216,7 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
 
     adverloss = torch.torch.nn.BCELoss()
 
-    for filename in natsorted(os.listdir(model_path)):
+    for filename in tqdm(natsorted(os.listdir(model_path))):
         if 'generator' in filename:
             fgen = os.path.join(model_path, filename)
             nr = filename.replace('generator','')
@@ -229,12 +238,16 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
 
                 H["g_loss"].append(g_loss.item())
                 H["d_loss"].append(d_loss.item())
-
-                l1 = evaluation_metrics.l1norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0],:,:])
-                l2 = evaluation_metrics.l2norm(real=gen_samples.detach().cpu(),fake=x_test[0:staticnoise.shape[0],:,:])
+                fake_samples = gen_samples.detach().cpu()
+                real = torch.Tensor(x_test[0:staticnoise.shape[0],:,:])
+                l1 = evaluation_metrics.l1norm(fake=fake_samples.cpu(),real=real)
+                l2 = evaluation_metrics.l2norm(fake=fake_samples,real=real)
                 H["l1_norm"].append(l1)
                 H["l2_norm"].append(l2)
-                ##
+
+                acc_real, acc_fake = evaluation_metrics.discriminator_accuracy(fake=fake_samples,real=real,dis_model=dis_model)
+                H['acc_real'].append(acc_real.cpu())
+                H['acc_fake'].append(acc_fake.cpu())
             if gen_img:
                 if not os.path.exists(str(model_path+"fake/")):
                     os.makedirs(model_path+"fake/")    
@@ -271,6 +284,22 @@ def eval_model(model_path,staticnoise,x_test,gen_img=False,losses=False):
         plt.ylabel("Avarage l2 norm")
         plt.savefig(str(model_path+"normeval"))
 
+        plt.figure()
+        plt.plot(H["l2_norm"])
+        plt.yscale("symlog")
+        plt.xlabel("Epoch")
+        plt.ylabel("Avarage l2 norm (log)")
+        plt.savefig(str(model_path+"normeval_log"))
+
+        plt.figure()
+        plt.plot(H['acc_real'])
+        plt.plot(H['acc_fake'])
+        plt.legend(['Real Data','Fake data'])
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.title('Discriminator accuracy')
+        plt.savefig(str(model_path+"accuracy"))
+
 class evaluation_metrics():
     def __init__(self) -> None:
         pass
@@ -294,3 +323,25 @@ class evaluation_metrics():
         l1 = np.linalg.norm(e,ord=2,axis=0)
         av_l1=np.mean(l1)
         return av_l1
+
+    def discriminator_accuracy(real,fake,dis_model):
+        # if torch.cuda.is_available():
+        #     Tensor = torch.cuda.FloatTensor
+        # else:
+        Tensor = torch.FloatTensor
+
+        target_real = torch.ones(len(real),1,1)
+        target_fake = torch.zeros(len(fake),1,1)
+        metric = BinaryAccuracy()
+        if torch.cuda.is_available():
+            real_pred = dis_model(real.to(torch.device('cuda')))
+            fake_pred = dis_model(fake.to(torch.device('cuda')))
+            metric = metric.to(torch.device('cuda'))
+            target_real = torch.ones(len(real),1,1).to(torch.device('cuda'))
+            target_fake = torch.zeros(len(fake),1,1).to(torch.device('cuda'))                                                      
+        else:
+            real_pred = dis_model(real)
+            fake_pred = dis_model(fake)
+        acc_real = metric(real_pred,target_real)
+        acc_fake = metric(fake_pred,target_fake)
+        return acc_real, acc_fake
